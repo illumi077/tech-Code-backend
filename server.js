@@ -122,6 +122,9 @@ io.on('connection', (socket) => {
     console.log(`A client disconnected: ${socket.id}`);
   });
 });
+app.get('/', (req, res) => {
+  res.send('Server is running!');
+});
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
