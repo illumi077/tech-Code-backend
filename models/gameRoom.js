@@ -23,7 +23,9 @@ const gameRoomSchema = new mongoose.Schema({
       timestamp: { type: Date, default: Date.now },         // Timestamp of the turn
     },
   ],
-  timestamp: { type: Date, default: Date.now },             // Timestamp for when the room was created
+  timestamp: { type: Date, default: Date.now },
+  currentHint: { type: String, default: '' }, // Store the latest hint
+
 });
 
 module.exports = mongoose.model('GameRoom', gameRoomSchema);

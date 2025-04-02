@@ -49,6 +49,26 @@ io.on('connection', (socket) => {
       console.error('Invalid playerLeft payload received:', { roomCode, players });
     }
   });
+  
+  io.on('connection', (socket) => {
+    socket.on('submitHint', async ({ roomCode, hint }) => {
+      try {
+        const room = await GameRoom.findOne({ roomCode });
+        if (room && room.gameState === 'active') {
+          room.currentHint = hint;
+          await room.save();
+          io.to(roomCode).emit('newHint', hint); // Broadcast hint to all players
+          console.log(`Hint submitted for room ${roomCode}: ${hint}`);
+        } else {
+          console.error(`Invalid hint submission. Room ${roomCode} not found or inactive.`);
+        }
+      } catch (error) {
+        console.error('Error submitting hint:', error);
+      }
+    });
+  });
+
+  
 
   socket.on('startGame', async (roomCode) => {
     try {
