@@ -55,6 +55,34 @@ io.on('connection', (socket) => {
       console.error("Error handling player join:", error);
     }
   });
+  socket.on("startGame", async (roomCode) => {
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room) return;
+  
+      // Count players in each role
+      const redTeamSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
+      const blueTeamSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
+      const redTeamAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
+      const blueTeamAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+  
+      if (!redTeamSpymaster || !blueTeamSpymaster || !redTeamAgent || !blueTeamAgent) {
+        io.to(roomCode).emit("gameStartFailed", { message: "Game cannot start! Each team must have at least 1 Spymaster and 1 Agent." });
+        return;
+      }
+  
+      // Start the game if conditions are met
+      room.currentTurnTeam = "Red";
+      room.timerStartTime = Date.now();
+      room.gameState = "active";
+      await room.save();
+  
+      io.to(roomCode).emit("gameStarted", { currentTurnTeam: "Red", timerStartTime: room.timerStartTime });
+      console.log(`Game started in room ${roomCode}, Red team's turn.`);
+    } catch (error) {
+      console.error("Error starting the game:", error);
+    }
+  });
   
 
   socket.on("playerLeft", async ({ roomCode, username }) => {
