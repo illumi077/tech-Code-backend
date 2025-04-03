@@ -61,31 +61,54 @@ io.on('connection', (socket) => {
     await room.save();
     io.to(roomCode).emit("newHint", formattedHint);
   });
-
-  socket.on('tileClicked', async ({ roomCode, index }) => {
+  
+  socket.on("tileClicked", async ({ roomCode, index }) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-
+  
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
-
-      if (tileColor === 'black') {
-        room.gameState = 'ended';
+  
+      const allRedRevealed = room.patterns
+        .map((color, i) => color === "red" && room.revealedTiles[i])
+        .every(Boolean);
+  
+      const allBlueRevealed = room.patterns
+        .map((color, i) => color === "blue" && room.revealedTiles[i])
+        .every(Boolean);
+  
+      if (tileColor === "black") {
+        room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit('gameEnded', { result: `Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
+        io.to(roomCode).emit("gameEnded", { result: `Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
+      } else if (allRedRevealed) {
+        room.gameState = "ended";
+        await room.save();
+        io.to(roomCode).emit("gameEnded", { result: `Game Over! Red team has found all their tiles and wins!` });
+      } else if (allBlueRevealed) {
+        room.gameState = "ended";
+        await room.save();
+        io.to(roomCode).emit("gameEnded", { result: `Game Over! Blue team has found all their tiles and wins!` });
       } else {
-        room.currentTurnTeam = room.currentTurnTeam === 'Red' ? 'Blue' : 'Red';
+        // **Clear the previous hint**
+        room.currentHint = "";
+        room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
         room.timerStartTime = Date.now();
         await room.save();
-        io.to(roomCode).emit('turnSwitched', { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
+  
+        io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
+        io.to(roomCode).emit("newHint", ""); // Send an empty hint to reset the frontend display
       }
-
-      io.to(roomCode).emit('updateTile', { index, tileColor });
+  
+      io.to(roomCode).emit("updateTile", { index, tileColor });
+  
     } catch (error) {
-      console.error('Error handling tile click:', error);
+      console.error("Error handling tile click:", error);
     }
   });
+  
+  
 
   socket.on('disconnect', () => {
     console.log(`A client disconnected: ${socket.id}`);
