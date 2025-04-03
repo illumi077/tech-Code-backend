@@ -32,21 +32,60 @@ app.set('io', io);
 io.on('connection', (socket) => {
   console.log(`A client connected: ${socket.id}`);
 
-  socket.on('joinRoom', (roomCode) => {
-    if (roomCode) {
-      socket.join(roomCode);
-      console.log(`Client joined room: ${roomCode}`);
-    } else {
-      console.log(`Invalid roomCode received from client: ${socket.id}`);
+  socket.on("joinRoom", async (roomCode) => {
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room) return;
+      
+      // **Check if balance is restored**
+      const redTeamSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
+      const blueTeamSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
+      const redTeamAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
+      const blueTeamAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+  
+      if (redTeamSpymaster && blueTeamSpymaster && redTeamAgent && blueTeamAgent && room.gameState === "paused") {
+        room.gameState = "active";
+        await room.save();
+        io.to(roomCode).emit("gameResumed", { message: "Game resumed!" });
+      }
+  
+      console.log(`Player joined room: ${roomCode}`);
+      io.to(roomCode).emit("updatePlayers", room.players);
+    } catch (error) {
+      console.error("Error handling player join:", error);
     }
   });
+  
 
-  socket.on('playerLeft', ({ roomCode, players }) => {
-    if (roomCode && players) {
-      io.to(roomCode).emit('updatePlayers', players);
-      console.log(`Updated players broadcasted for room: ${roomCode}`);
+  socket.on("playerLeft", async ({ roomCode, username }) => {
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room) return;
+  
+      room.players = room.players.filter(player => player.username !== username);
+      await room.save();
+  
+      // **Check if both teams still have at least 1 Spymaster + 1 Agent**
+      const redTeamSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
+      const blueTeamSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
+      const redTeamAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
+      const blueTeamAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+  
+      if (!redTeamSpymaster || !blueTeamSpymaster || !redTeamAgent || !blueTeamAgent) {
+        room.gameState = "paused";
+        await room.save();
+        io.to(roomCode).emit("gamePaused", { message: "Game paused! Not enough players. Join to resume." });
+        return;
+      }
+  
+      // **Update player list in frontend**
+      io.to(roomCode).emit("updatePlayers", room.players);
+      console.log(`Updated player list for room: ${roomCode}`);
+    } catch (error) {
+      console.error("Error handling player leaving:", error);
     }
   });
+  
 
   socket.on("submitHint", async ({ roomCode, hint, username }) => {
     const room = await GameRoom.findOne({ roomCode });
@@ -108,7 +147,7 @@ io.on('connection', (socket) => {
       console.error("Error handling tile click:", error);
     }
   });
-  
+
   socket.on("timerExpired", async (roomCode) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
