@@ -49,23 +49,37 @@ io.on('connection', (socket) => {
       console.error('Invalid playerLeft payload received:', { roomCode, players });
     }
   });
-  socket.on("submitHint", async ({ roomCode, hint }) => {
-    console.log("Received hint on backend:", { roomCode, hint }); // Debug log
+  socket.on("submitHint", async ({ roomCode, hint, username }) => {
+    console.log("Received hint request on backend:", { roomCode, hint, username });
   
     try {
       const room = await GameRoom.findOne({ roomCode });
-      if (room && room.gameState === "active") {
-        room.currentHint = hint;
-        await room.save();
-        console.log(`Hint saved to database for room ${roomCode}: ${hint}`); // Debug log
-        io.to(roomCode).emit("newHint", hint); // Broadcast hint to all players
-      } else {
+  
+      if (!room || room.gameState !== "active") {
         console.error(`Invalid hint submission. Room ${roomCode} not found or inactive.`);
+        return;
       }
+  
+      // Find the player submitting the hint
+      const spymaster = room.players.find(player => player.username === username);
+  
+      if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) {
+        console.error(`Unauthorized hint submission from ${username}`);
+        return;
+      }
+  
+      // Store and broadcast the hint with Spymaster's team name
+      const formattedHint = `${spymaster.team} Team Spymaster's Hint: ${hint}`;
+      room.currentHint = formattedHint;
+      await room.save();
+      io.to(roomCode).emit("newHint", formattedHint); // Broadcast formatted hint
+  
+      console.log(`Hint saved for ${room.currentTurnTeam} Team: ${hint}`);
     } catch (error) {
       console.error("Error submitting hint:", error);
     }
   });
+  
   
   io.on('connection', (socket) => {
     socket.on('submitHint', async ({ roomCode, hint }) => {
