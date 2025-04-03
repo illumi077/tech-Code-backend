@@ -91,22 +91,50 @@ io.on('connection', (socket) => {
         await room.save();
         io.to(roomCode).emit("gameEnded", { result: `Game Over! Blue team has found all their tiles and wins!` });
       } else {
-        // **Clear the previous hint**
+        // **Store latest action to prevent wrong turn switches**
+        room.lastAction = { team: room.currentTurnTeam, type: "guess", timestamp: Date.now() };
+  
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
         room.timerStartTime = Date.now();
         await room.save();
   
         io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
-        io.to(roomCode).emit("newHint", ""); // Send an empty hint to reset the frontend display
+        io.to(roomCode).emit("newHint", "");
       }
   
       io.to(roomCode).emit("updateTile", { index, tileColor });
-  
     } catch (error) {
       console.error("Error handling tile click:", error);
     }
   });
+  
+  socket.on("timerExpired", async (roomCode) => {
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room || room.gameState !== "active") return;
+  
+      // **Check if a turn has already been switched**
+      if (Date.now() - room.timerStartTime < 5000) {
+        console.log(`Ignoring repeated timer expiration for room ${roomCode}`);
+        return;
+      }
+  
+      room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
+      room.timerStartTime = Date.now();
+      room.currentHint = ""; // Reset hint on turn switch
+      await room.save();
+  
+      io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
+      io.to(roomCode).emit("newHint", ""); // Clear hint for new turn
+  
+      console.log(`Turn switched due to timer expiration in room ${roomCode}`);
+    } catch (error) {
+      console.error("Error handling timer expiration:", error);
+    }
+  });
+  
+  
   
   
 
