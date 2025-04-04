@@ -168,6 +168,27 @@ io.on("connection", (socket) => {
     }
   });
 });
+socket.on("timerExpired", async ({ roomCode }) => {
+  try {
+    const room = await GameRoom.findOne({ roomCode });
+    if (!room || room.gameState !== "active") return;
+
+    room.currentHint = "";
+    room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
+
+    // ✅ Reset timer when time expires
+    room.timerStartTime = Date.now();
+    await room.save();
+
+    io.to(roomCode).emit("turnSwitched", { 
+      currentTurnTeam: room.currentTurnTeam, 
+      timerStartTime: room.timerStartTime 
+    });
+  } catch (error) {
+    console.error("⚠️ Error handling timer expiry:", error);
+  }
+});
+
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
