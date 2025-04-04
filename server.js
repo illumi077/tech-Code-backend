@@ -130,13 +130,13 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-
+  
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
-
+  
       const allRedRevealed = room.patterns.every((color, i) => color === "red" ? room.revealedTiles[i] : true);
       const allBlueRevealed = room.patterns.every((color, i) => color === "blue" ? room.revealedTiles[i] : true);
-
+  
       if (tileColor === "black") {
         room.gameState = "ended";
         await room.save();
@@ -152,48 +152,50 @@ io.on("connection", (socket) => {
       } else {
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-
-        // ✅ Ensure timer resets on turn switch
-        room.timerStartTime = Date.now();
+  
+        // ✅ Debug Log - Check Timer Update
+        const newTimerStartTime = Date.now();
+        console.log(`🔄 Turn switched to ${room.currentTurnTeam}, Timer reset at: ${newTimerStartTime}`);
+  
+        room.timerStartTime = newTimerStartTime;
         await room.save();
-
+  
         io.to(roomCode).emit("turnSwitched", { 
           currentTurnTeam: room.currentTurnTeam, 
-          timerStartTime: room.timerStartTime
+          timerStartTime: newTimerStartTime // ✅ Ensure timer resets properly
         });
       }
-
+  
       io.to(roomCode).emit("updateTile", { index, tileColor });
     } catch (error) {
       console.error("⚠️ Error handling tile click:", error);
     }
-});
+  });
+  
+
 socket.on("timerExpired", async ({ roomCode }) => {
   console.log("🔴 Timer Expired Event Received:", roomCode);
-  if (!roomCode) {
-    console.error("❌ Invalid roomCode received.");
-    return;
-  }
-
+  
   try {
     const room = await GameRoom.findOne({ roomCode });
     if (!room || room.gameState !== "active") return;
 
+    // Ensure turn switch logic properly updates the timer
     room.currentHint = "";
     room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-
-    // ✅ Reset timer
-    room.timerStartTime = Date.now();
+    room.timerStartTime = Date.now(); // ✅ Explicitly update timer
+    
     await room.save();
 
     io.to(roomCode).emit("turnSwitched", { 
       currentTurnTeam: room.currentTurnTeam, 
-      timerStartTime: room.timerStartTime 
+      timerStartTime: room.timerStartTime // ✅ Send updated timerStartTime
     });
   } catch (error) {
     console.error("⚠️ Error handling timer expiry:", error);
   }
 });
+
   socket.on("disconnect", () => {
     console.log(`❌ Client disconnected: ${socket.id}`);
   });
