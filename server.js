@@ -129,13 +129,13 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-
+  
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
-
+  
       const allRedRevealed = room.patterns.every((color, i) => color === "red" ? room.revealedTiles[i] : true);
       const allBlueRevealed = room.patterns.every((color, i) => color === "blue" ? room.revealedTiles[i] : true);
-
+  
       if (tileColor === "black") {
         room.gameState = "ended";
         await room.save();
@@ -151,18 +151,24 @@ io.on("connection", (socket) => {
       } else {
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-        room.timerStartTime = Date.now();
+  
+        // ✅ **Ensure timer resets on turn switch**
+        const newTimerStartTime = Date.now();
+        room.timerStartTime = newTimerStartTime;
         await room.save();
-
-        io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
+  
+        io.to(roomCode).emit("turnSwitched", { 
+          currentTurnTeam: room.currentTurnTeam, 
+          timerStartTime: newTimerStartTime // ✅ **Explicitly send updated timestamp**
+        });
       }
-
+  
       io.to(roomCode).emit("updateTile", { index, tileColor });
     } catch (error) {
       console.error("Error handling tile click:", error);
     }
   });
-});
+}); // Add missing closing brace for io.on("connection", (socket) => {
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
