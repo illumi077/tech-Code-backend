@@ -238,7 +238,7 @@ io.on("connection", (socket) => {
       const room = await GameRoom.findOne({ roomCode });
       if (!room || room.gameState !== "active") return;
   
-      // ✅ Same logic as `tileClicked`
+      // ✅ Switch the turn when timer exhausts
       room.currentHint = "";
       room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
       room.timerStartTime = Date.now();
@@ -248,7 +248,7 @@ io.on("connection", (socket) => {
   
       io.to(roomCode).emit("turnSwitched", {
         currentTurnTeam: room.currentTurnTeam,
-        timerStartTime: room.timerStartTime,
+        timerStartTime: room.timerStartTime, // ✅ Ensure proper reset
       });
     } catch (error) {
       console.error("⚠️ Error handling timer expiry:", error);
