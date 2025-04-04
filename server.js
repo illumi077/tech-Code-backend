@@ -25,7 +25,7 @@ mongoose
 
 const roomRoutes = require("./routes/roomRoutes");
 const GameRoom = require("./models/gameRoom");
-const { socket } = require("../frontend/src/utils/socket");
+
 app.use("/api/rooms", roomRoutes);
 
 app.set("io", io);
@@ -167,37 +167,39 @@ io.on("connection", (socket) => {
     } catch (error) {
       console.error("⚠️ Error handling tile click:", error);
     }
-  });
 });
-
-socket.on("timerExpired", async (data) => {
-  console.log("🔴 Timer Expired Event Received:", data);
-
-  const { roomCode } = data;
+socket.on("timerExpired", async ({ roomCode }) => {
+  console.log("🔴 Timer Expired Event Received:", roomCode);
   if (!roomCode) {
-      console.error("❌ Invalid roomCode received.");
-      return;
+    console.error("❌ Invalid roomCode received.");
+    return;
   }
 
   try {
-      const room = await GameRoom.findOne({ roomCode });
-      if (!room || room.gameState !== "active") return;
+    const room = await GameRoom.findOne({ roomCode });
+    if (!room || room.gameState !== "active") return;
 
-      room.currentHint = "";
-      room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
+    room.currentHint = "";
+    room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
 
-      // ✅ Reset timer
-      room.timerStartTime = Date.now();
-      await room.save();
+    // ✅ Reset timer
+    room.timerStartTime = Date.now();
+    await room.save();
 
-      io.to(roomCode).emit("turnSwitched", { 
-          currentTurnTeam: room.currentTurnTeam, 
-          timerStartTime: room.timerStartTime 
-      });
+    io.to(roomCode).emit("turnSwitched", { 
+      currentTurnTeam: room.currentTurnTeam, 
+      timerStartTime: room.timerStartTime 
+    });
   } catch (error) {
-      console.error("⚠️ Error handling timer expiry:", error);
+    console.error("⚠️ Error handling timer expiry:", error);
   }
 });
+  socket.on("disconnect", () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+  });
+});
+
+
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
