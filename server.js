@@ -20,8 +20,8 @@ app.use(express.json());
 
 mongoose
   .connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected successfully!"))
-  .catch((error) => console.error("MongoDB connection error:", error));
+  .then(() => console.log("✅ MongoDB connected successfully!"))
+  .catch((error) => console.error("❌ MongoDB connection error:", error));
 
 const roomRoutes = require("./routes/roomRoutes");
 const GameRoom = require("./models/gameRoom");
@@ -30,7 +30,7 @@ app.use("/api/rooms", roomRoutes);
 app.set("io", io);
 
 io.on("connection", (socket) => {
-  console.log(`A client connected: ${socket.id}`);
+  console.log(`🔗 A client connected: ${socket.id}`);
 
   // **Join Room & Resume Game if Balanced**
   socket.on("joinRoom", async (roomCode) => {
@@ -43,16 +43,16 @@ io.on("connection", (socket) => {
       const redAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
       const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
 
-      if (redSpymaster && blueSpymaster && redAgent && blueAgent && room.gameState === "paused") {
+      if (room.gameState === "paused" && redSpymaster && blueSpymaster && redAgent && blueAgent) {
         room.gameState = "active";
         await room.save();
-        io.to(roomCode).emit("gameResumed", { message: "Game resumed!" });
+        io.to(roomCode).emit("gameResumed", { message: "✅ Game resumed!" });
       }
 
-      console.log(`Player joined room: ${roomCode}`);
+      console.log(`📢 Player joined room: ${roomCode}`);
       io.to(roomCode).emit("updatePlayers", room.players);
     } catch (error) {
-      console.error("Error handling player join:", error);
+      console.error("⚠️ Error handling player join:", error);
     }
   });
 
@@ -68,7 +68,7 @@ io.on("connection", (socket) => {
       const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
 
       if (!redSpymaster || !blueSpymaster || !redAgent || !blueAgent) {
-        io.to(roomCode).emit("gameStartFailed", { message: "Game cannot start! Each team must have at least 1 Spymaster and 1 Agent." });
+        io.to(roomCode).emit("gameStartFailed", { message: "❌ Game cannot start! Each team must have at least 1 Spymaster and 1 Agent." });
         return;
       }
 
@@ -79,7 +79,7 @@ io.on("connection", (socket) => {
 
       io.to(roomCode).emit("gameStarted", { currentTurnTeam: "Red", timerStartTime: room.timerStartTime });
     } catch (error) {
-      console.error("Error starting the game:", error);
+      console.error("⚠️ Error starting the game:", error);
     }
   });
 
@@ -100,13 +100,13 @@ io.on("connection", (socket) => {
       if (!redSpymaster || !blueSpymaster || !redAgent || !blueAgent) {
         room.gameState = "paused";
         await room.save();
-        io.to(roomCode).emit("gamePaused", { message: "Game paused! Not enough players. Join to resume." });
+        io.to(roomCode).emit("gamePaused", { message: "⏸️ Game paused! Not enough players. Join to resume." });
         return;
       }
 
       io.to(roomCode).emit("updatePlayers", room.players);
     } catch (error) {
-      console.error("Error handling player leaving:", error);
+      console.error("⚠️ Error handling player leaving:", error);
     }
   });
 
@@ -129,50 +129,49 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-  
+
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
-  
+
       const allRedRevealed = room.patterns.every((color, i) => color === "red" ? room.revealedTiles[i] : true);
       const allBlueRevealed = room.patterns.every((color, i) => color === "blue" ? room.revealedTiles[i] : true);
-  
+
       if (tileColor === "black") {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: `Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
+        io.to(roomCode).emit("gameEnded", { result: `☠️ Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
       } else if (allRedRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: "Game Over! Red team wins!" });
+        io.to(roomCode).emit("gameEnded", { result: "🏆 Game Over! Red team wins!" });
       } else if (allBlueRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: "Game Over! Blue team wins!" });
+        io.to(roomCode).emit("gameEnded", { result: "🏆 Game Over! Blue team wins!" });
       } else {
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-  
-        // ✅ **Ensure timer resets on turn switch**
-        const newTimerStartTime = Date.now();
-        room.timerStartTime = newTimerStartTime;
+
+        // ✅ Ensure timer resets on turn switch
+        room.timerStartTime = Date.now();
         await room.save();
-  
+
         io.to(roomCode).emit("turnSwitched", { 
           currentTurnTeam: room.currentTurnTeam, 
-          timerStartTime: newTimerStartTime // ✅ **Explicitly send updated timestamp**
+          timerStartTime: room.timerStartTime
         });
       }
-  
+
       io.to(roomCode).emit("updateTile", { index, tileColor });
     } catch (error) {
-      console.error("Error handling tile click:", error);
+      console.error("⚠️ Error handling tile click:", error);
     }
   });
-}); // Add missing closing brace for io.on("connection", (socket) => {
+});
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
