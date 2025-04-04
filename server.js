@@ -129,18 +129,13 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-  
+
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
-  
-      const allRedRevealed = room.patterns
-        .map((color, i) => color === "red" && room.revealedTiles[i])
-        .every(Boolean);
-  
-      const allBlueRevealed = room.patterns
-        .map((color, i) => color === "blue" && room.revealedTiles[i])
-        .every(Boolean);
-  
+
+      const allRedRevealed = room.patterns.every((color, i) => color === "red" ? room.revealedTiles[i] : true);
+      const allBlueRevealed = room.patterns.every((color, i) => color === "blue" ? room.revealedTiles[i] : true);
+
       if (tileColor === "black") {
         room.gameState = "ended";
         await room.save();
@@ -148,68 +143,28 @@ io.on("connection", (socket) => {
       } else if (allRedRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: `Game Over! Red team has found all their tiles and wins!` });
+        io.to(roomCode).emit("gameEnded", { result: "Game Over! Red team wins!" });
       } else if (allBlueRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: `Game Over! Blue team has found all their tiles and wins!` });
+        io.to(roomCode).emit("gameEnded", { result: "Game Over! Blue team wins!" });
       } else {
-        // **Store latest action to prevent wrong turn switches**
-        room.lastAction = { team: room.currentTurnTeam, type: "guess", timestamp: Date.now() };
-  
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
         room.timerStartTime = Date.now();
         await room.save();
-  
+
         io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
-        io.to(roomCode).emit("newHint", "");
       }
-  
+
       io.to(roomCode).emit("updateTile", { index, tileColor });
     } catch (error) {
       console.error("Error handling tile click:", error);
     }
   });
-  
-  socket.on("timerExpired", async (roomCode) => {
-    try {
-      const room = await GameRoom.findOne({ roomCode });
-      if (!room || room.gameState !== "active") return;
-  
-      // **Check if a turn has already been switched**
-      if (Date.now() - room.timerStartTime < 5000) {
-        console.log(`Ignoring repeated timer expiration for room ${roomCode}`);
-        return;
-      }
-  
-      room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-      room.timerStartTime = Date.now();
-      room.currentHint = ""; // Reset hint on turn switch
-      await room.save();
-  
-      io.to(roomCode).emit("turnSwitched", { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
-      io.to(roomCode).emit("newHint", ""); // Clear hint for new turn
-  
-      console.log(`Turn switched due to timer expiration in room ${roomCode}`);
-    } catch (error) {
-      console.error("Error handling timer expiration:", error);
-    }
-  });
-  
-  
-  
-  
-  
-
-  socket.on('disconnect', () => {
-    console.log(`A client disconnected: ${socket.id}`);
-  });
 });
 
-app.get('/', (req, res) => {
-  res.send('Server is running!');
-});
+app.get("/", (req, res) => res.send("Server is running!"));
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
