@@ -39,12 +39,26 @@ io.on("connection", (socket) => {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
 
-      const redSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
-      const blueSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
-      const redAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
-      const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+      const redSpymaster = room.players.find(
+        (p) => p.team === "Red" && p.role === "Spymaster"
+      );
+      const blueSpymaster = room.players.find(
+        (p) => p.team === "Blue" && p.role === "Spymaster"
+      );
+      const redAgent = room.players.some(
+        (p) => p.team === "Red" && p.role === "Agent"
+      );
+      const blueAgent = room.players.some(
+        (p) => p.team === "Blue" && p.role === "Agent"
+      );
 
-      if (room.gameState === "paused" && redSpymaster && blueSpymaster && redAgent && blueAgent) {
+      if (
+        room.gameState === "paused" &&
+        redSpymaster &&
+        blueSpymaster &&
+        redAgent &&
+        blueAgent
+      ) {
         room.gameState = "active";
         await room.save();
         io.to(roomCode).emit("gameResumed", { message: "✅ Game resumed!" });
@@ -63,13 +77,24 @@ io.on("connection", (socket) => {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
 
-      const redSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
-      const blueSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
-      const redAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
-      const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+      const redSpymaster = room.players.find(
+        (p) => p.team === "Red" && p.role === "Spymaster"
+      );
+      const blueSpymaster = room.players.find(
+        (p) => p.team === "Blue" && p.role === "Spymaster"
+      );
+      const redAgent = room.players.some(
+        (p) => p.team === "Red" && p.role === "Agent"
+      );
+      const blueAgent = room.players.some(
+        (p) => p.team === "Blue" && p.role === "Agent"
+      );
 
       if (!redSpymaster || !blueSpymaster || !redAgent || !blueAgent) {
-        io.to(roomCode).emit("gameStartFailed", { message: "❌ Game cannot start! Each team must have at least 1 Spymaster and 1 Agent." });
+        io.to(roomCode).emit("gameStartFailed", {
+          message:
+            "❌ Game cannot start! Each team must have at least 1 Spymaster and 1 Agent.",
+        });
         return;
       }
 
@@ -78,7 +103,10 @@ io.on("connection", (socket) => {
       room.gameState = "active";
       await room.save();
 
-      io.to(roomCode).emit("gameStarted", { currentTurnTeam: "Red", timerStartTime: room.timerStartTime });
+      io.to(roomCode).emit("gameStarted", {
+        currentTurnTeam: "Red",
+        timerStartTime: room.timerStartTime,
+      });
     } catch (error) {
       console.error("⚠️ Error starting the game:", error);
     }
@@ -90,18 +118,30 @@ io.on("connection", (socket) => {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
 
-      room.players = room.players.filter(player => player.username !== username);
+      room.players = room.players.filter(
+        (player) => player.username !== username
+      );
       await room.save();
 
-      const redSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
-      const blueSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
-      const redAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
-      const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+      const redSpymaster = room.players.find(
+        (p) => p.team === "Red" && p.role === "Spymaster"
+      );
+      const blueSpymaster = room.players.find(
+        (p) => p.team === "Blue" && p.role === "Spymaster"
+      );
+      const redAgent = room.players.some(
+        (p) => p.team === "Red" && p.role === "Agent"
+      );
+      const blueAgent = room.players.some(
+        (p) => p.team === "Blue" && p.role === "Agent"
+      );
 
       if (!redSpymaster || !blueSpymaster || !redAgent || !blueAgent) {
         room.gameState = "paused";
         await room.save();
-        io.to(roomCode).emit("gamePaused", { message: "⏸️ Game paused! Not enough players. Join to resume." });
+        io.to(roomCode).emit("gamePaused", {
+          message: "⏸️ Game paused! Not enough players. Join to resume.",
+        });
         return;
       }
 
@@ -116,8 +156,15 @@ io.on("connection", (socket) => {
     const room = await GameRoom.findOne({ roomCode });
     if (!room || room.gameState !== "active") return;
 
-    const spymaster = room.players.find(player => player.username === username);
-    if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) return;
+    const spymaster = room.players.find(
+      (player) => player.username === username
+    );
+    if (
+      !spymaster ||
+      spymaster.role !== "Spymaster" ||
+      spymaster.team !== room.currentTurnTeam
+    )
+      return;
 
     const formattedHint = `${spymaster.team} Team Spymaster's Hint: ${hint}`;
     room.currentHint = formattedHint;
@@ -134,35 +181,45 @@ io.on("connection", (socket) => {
       room.revealedTiles[index] = true;
       const tileColor = room.patterns[index];
   
-      const allRedRevealed = room.patterns.every((color, i) => color === "red" ? room.revealedTiles[i] : true);
-      const allBlueRevealed = room.patterns.every((color, i) => color === "blue" ? room.revealedTiles[i] : true);
+      const allRedRevealed = room.patterns.every((color, i) =>
+        color === "red" ? room.revealedTiles[i] : true
+      );
+      const allBlueRevealed = room.patterns.every((color, i) =>
+        color === "blue" ? room.revealedTiles[i] : true
+      );
   
       if (tileColor === "black") {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: `☠️ Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
+        io.to(roomCode).emit("gameEnded", {
+          result: `☠️ Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.`,
+        });
       } else if (allRedRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: "🏆 Game Over! Red team wins!" });
+        io.to(roomCode).emit("gameEnded", {
+          result: "🏆 Game Over! Red team wins!",
+        });
       } else if (allBlueRevealed) {
         room.gameState = "ended";
         await room.save();
-        io.to(roomCode).emit("gameEnded", { result: "🏆 Game Over! Blue team wins!" });
+        io.to(roomCode).emit("gameEnded", {
+          result: "🏆 Game Over! Blue team wins!",
+        });
       } else {
         room.currentHint = "";
         room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
   
-        // ✅ Debug Log - Check Timer Update
-        const newTimerStartTime = Date.now();
-        console.log(`🔄 Turn switched to ${room.currentTurnTeam}, Timer reset at: ${newTimerStartTime}`);
-  
-        room.timerStartTime = newTimerStartTime;
+        // ✅ Ensure timer resets correctly
+        room.timerStartTime = Date.now();
         await room.save();
   
-        io.to(roomCode).emit("turnSwitched", { 
-          currentTurnTeam: room.currentTurnTeam, 
-          timerStartTime: newTimerStartTime // ✅ Ensure timer resets properly
+        console.log(`🔄 Turn switched to ${room.currentTurnTeam}, Timer reset globally at: ${room.timerStartTime}`);
+  
+        // ✅ Emit turnSwitched event once—avoiding redundant events
+        io.to(roomCode).emit("turnSwitched", {
+          currentTurnTeam: room.currentTurnTeam,
+          timerStartTime: room.timerStartTime,
         });
       }
   
@@ -172,36 +229,37 @@ io.on("connection", (socket) => {
     }
   });
   
-
-socket.on("timerExpired", async ({ roomCode }) => {
-  console.log("🔴 Timer Expired Event Received:", roomCode);
   
-  try {
-    const room = await GameRoom.findOne({ roomCode });
-    if (!room || room.gameState !== "active") return;
 
-    // Ensure turn switch logic properly updates the timer
-    room.currentHint = "";
-    room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-    room.timerStartTime = Date.now(); // ✅ Explicitly update timer
-    
-    await room.save();
-
-    io.to(roomCode).emit("turnSwitched", { 
-      currentTurnTeam: room.currentTurnTeam, 
-      timerStartTime: room.timerStartTime // ✅ Send updated timerStartTime
-    });
-  } catch (error) {
-    console.error("⚠️ Error handling timer expiry:", error);
-  }
-});
+  socket.on("timerExpired", async ({ roomCode }) => {
+    console.log("🔴 Timer Expired Event Received:", roomCode);
+  
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room || room.gameState !== "active") return;
+  
+      // ✅ Same logic as `tileClicked`
+      room.currentHint = "";
+      room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
+      room.timerStartTime = Date.now();
+      await room.save();
+  
+      console.log(`⏳ Timer expired, switching turn to ${room.currentTurnTeam}, Global timer reset at: ${room.timerStartTime}`);
+  
+      io.to(roomCode).emit("turnSwitched", {
+        currentTurnTeam: room.currentTurnTeam,
+        timerStartTime: room.timerStartTime,
+      });
+    } catch (error) {
+      console.error("⚠️ Error handling timer expiry:", error);
+    }
+  });
+  
 
   socket.on("disconnect", () => {
     console.log(`❌ Client disconnected: ${socket.id}`);
   });
 });
-
-
 
 app.get("/", (req, res) => res.send("Server is running!"));
 
@@ -209,3 +267,4 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });
+
