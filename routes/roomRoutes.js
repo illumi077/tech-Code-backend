@@ -208,7 +208,7 @@ router.get("/:roomCode/hint", async (req, res) => {
     const room = await GameRoom.findOne({ roomCode: req.params.roomCode });
     if (!room) return res.status(404).json({ error: "Room not found" });
 
-    console.log("🔍 API Returning Hint:", room.currentHint); // ✅ Debug log
+    // console.log("🔍 API Returning Hint:", room.currentHint); 
     res.json({ currentHint: room.currentHint || "" });
   } catch (error) {
     console.error("⚠️ Error fetching hint:", error);

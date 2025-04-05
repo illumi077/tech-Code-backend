@@ -111,6 +111,7 @@ io.on("connection", (socket) => {
 
       if (tileColor === "black") {
         room.gameState = "ended";
+        alert(room.currentTurnTeam + " team lost by clicking a black tile.");
         await room.save();
         io.to(roomCode).emit("gameEnded", { result: `☠️ Game Over! ${room.currentTurnTeam} team lost by clicking a black tile.` });
       } else if (allRedRevealed) {
