@@ -178,4 +178,16 @@ router.delete('/leave', async (req, res) => {
   }
 });
 
+router.get("/:roomCode/hint", async (req, res) => {
+  try {
+    const room = await GameRoom.findOne({ roomCode: req.params.roomCode });
+    if (!room) return res.status(404).json({ error: "Room not found" });
+
+    res.json({ currentHint: room.currentHint || "" });
+  } catch (error) {
+    console.error("⚠️ Error fetching hint:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 module.exports = router;
