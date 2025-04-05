@@ -178,36 +178,15 @@ router.delete('/leave', async (req, res) => {
   }
 });
 
-router.post("/:roomCode/hint", async (req, res) => {
+router.get("/:roomCode/hint", async (req, res) => {
   try {
-    const { hint, username } = req.body;
     const room = await GameRoom.findOne({ roomCode: req.params.roomCode });
+    if (!room) return res.status(404).json({ error: "Room not found" });
 
-    if (!room || room.gameState !== "active") {
-      return res.status(400).json({ error: "Game is not active or room does not exist." });
-    }
-
-    const spymaster = room.players.find((player) => player.username === username);
-    if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) {
-      return res.status(403).json({ error: "Only the Spymaster can submit hints." });
-    }
-
-    if (room.currentHint) {
-      return res.status(409).json({ error: "❌ You can only submit one hint per turn!" });
-    }
-
-    console.log("📝 Hint received via manual API:", hint);
-
-    // ✅ Store hint in MongoDB
-    room.currentHint = hint;
-    await room.save();
-
-    console.log("📢 Hint saved in database via API:", hint);
-    io.to(req.params.roomCode).emit("newHint", hint);
-
-    res.json({ message: "✅ Hint successfully saved.", currentHint: room.currentHint });
+    console.log("🔍 API Returning Hint:", room.currentHint); // ✅ Debug log
+    res.json({ currentHint: room.currentHint || "" });
   } catch (error) {
-    console.error("⚠️ Error storing hint via API:", error);
+    console.error("⚠️ Error fetching hint:", error);
     res.status(500).json({ error: "Internal server error" });
   }
 });
