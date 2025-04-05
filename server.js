@@ -161,16 +161,19 @@ io.on("connection", (socket) => {
         return;
       }
   
+      console.log("📝 Hint received via socket:", hint);
+  
       // ✅ Store hint in MongoDB
       room.currentHint = hint;
       await room.save();
   
-      console.log("📢 Hint saved in database:", hint);
+      console.log("📢 Hint saved in database via socket:", hint);
       io.to(roomCode).emit("newHint", hint);
     } catch (error) {
       console.error("⚠️ Error storing hint:", error);
     }
   });
+  
   
   
   
