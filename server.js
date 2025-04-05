@@ -76,33 +76,29 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-
-      const redSpymaster = room.players.find(
-        (p) => p.team === "Red" && p.role === "Spymaster"
-      );
-      const blueSpymaster = room.players.find(
-        (p) => p.team === "Blue" && p.role === "Spymaster"
-      );
-      const redAgent = room.players.some(
-        (p) => p.team === "Red" && p.role === "Agent"
-      );
-      const blueAgent = room.players.some(
-        (p) => p.team === "Blue" && p.role === "Agent"
-      );
-
-      if (!redSpymaster || !blueSpymaster || !redAgent || !blueAgent) {
+  
+      const redTeam = room.players.filter((p) => p.team === "Red");
+      const blueTeam = room.players.filter((p) => p.team === "Blue");
+  
+      const redSpymaster = redTeam.find((p) => p.role === "Spymaster");
+      const blueSpymaster = blueTeam.find((p) => p.role === "Spymaster");
+      const redAgents = redTeam.filter((p) => p.role === "Agent").length;
+      const blueAgents = blueTeam.filter((p) => p.role === "Agent").length;
+  
+      // ✅ Ensure each team has **one Spymaster and at least one Agent**
+      if (!redSpymaster || !blueSpymaster || redAgents < 1 || blueAgents < 1) {
         io.to(roomCode).emit("gameStartFailed", {
           message:
-            "❌ Game cannot start! Each team must have at least 1 Spymaster and 1 Agent.",
+            "❌ Game cannot start! Each team needs 1 Spymaster and at least 1 Agent.",
         });
         return;
       }
-
+  
       room.currentTurnTeam = "Red";
       room.timerStartTime = Date.now();
       room.gameState = "active";
       await room.save();
-
+  
       io.to(roomCode).emit("gameStarted", {
         currentTurnTeam: "Red",
         timerStartTime: room.timerStartTime,
@@ -111,7 +107,7 @@ io.on("connection", (socket) => {
       console.error("⚠️ Error starting the game:", error);
     }
   });
-
+  
   // **Handle Player Leaving & Pause Game if Required**
   socket.on("playerLeft", async ({ roomCode, username }) => {
     try {
@@ -155,22 +151,25 @@ io.on("connection", (socket) => {
   socket.on("submitHint", async ({ roomCode, hint, username }) => {
     const room = await GameRoom.findOne({ roomCode });
     if (!room || room.gameState !== "active") return;
-
-    const spymaster = room.players.find(
-      (player) => player.username === username
-    );
-    if (
-      !spymaster ||
-      spymaster.role !== "Spymaster" ||
-      spymaster.team !== room.currentTurnTeam
-    )
+  
+    const spymaster = room.players.find((player) => player.username === username);
+    if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) return;
+  
+    // ✅ Prevent multiple hints per turn
+    if (room.currentHint) {
+      io.to(roomCode).emit("hintRejected", { message: "❌ You can only submit one hint per turn!" });
       return;
-
+    }
+  
     const formattedHint = `${spymaster.team} Team Spymaster's Hint: ${hint}`;
     room.currentHint = formattedHint;
     await room.save();
+  
+    console.log("📢 Emitting new hint:", formattedHint);
     io.to(roomCode).emit("newHint", formattedHint);
   });
+  
+  
 
   // **Handle Tile Click & Turn Switching**
   socket.on("tileClicked", async ({ roomCode, index }) => {
