@@ -98,29 +98,34 @@ router.post('/join', async (req, res) => {
 });
 
 // Start the game
-router.post('/startGame', async (req, res) => {
+router.post("/startGame", async (req, res) => {
   try {
     const { roomCode } = req.body;
-
     const room = await GameRoom.findOne({ roomCode });
+
     if (!room) {
-      return res.status(404).json({ error: 'Room not found.' });
+      return res.status(404).json({ error: "Room not found." });
     }
 
-    room.currentTurnTeam = 'Red';
-    room.timerEndTime = Date.now() + 60000; // ✅ Use backend-controlled expiration logic
-    room.gameState = 'active';
+    room.currentTurnTeam = "Red";
+    room.timerEndTime = Date.now() + 60000; // ✅ Backend-controlled timer expiration
+    room.gameState = "active";
     await room.save();
 
-    const io = req.app.get('io');
-    io.to(roomCode).emit('gameStarted', {
-      currentTurnTeam: 'Red',
-      timerEndTime: room.timerEndTime, // ✅ Sync the correct timer
+    const io = req.app.get("io");
+    io.to(roomCode).emit("gameStarted", {
+      currentTurnTeam: "Red",
+      timerEndTime: room.timerEndTime,
     });
 
-    res.status(200).json({ message: 'Game started successfully.', timerEndTime: room.timerEndTime });
+    console.log(`🚀 Game started! Timer set to expire at ${room.timerEndTime}`);
+
+    // ✅ Ensure timer expiration is scheduled immediately when the game starts
+    scheduleTurnExpiration(roomCode); 
+
+    res.status(200).json({ message: "Game started successfully.", timerEndTime: room.timerEndTime });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to start the game.', details: error.message });
+    res.status(500).json({ error: "Failed to start the game.", details: error.message });
   }
 });
 
