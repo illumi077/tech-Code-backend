@@ -149,25 +149,29 @@ io.on("connection", (socket) => {
 
   // **Submit Hint Validation**
   socket.on("submitHint", async ({ roomCode, hint, username }) => {
-    const room = await GameRoom.findOne({ roomCode });
-    if (!room || room.gameState !== "active") return;
+    try {
+      const room = await GameRoom.findOne({ roomCode });
+      if (!room || room.gameState !== "active") return;
   
-    const spymaster = room.players.find((player) => player.username === username);
-    if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) return;
+      const spymaster = room.players.find((player) => player.username === username);
+      if (!spymaster || spymaster.role !== "Spymaster" || spymaster.team !== room.currentTurnTeam) return;
   
-    // ✅ Prevent multiple hints per turn
-    if (room.currentHint) {
-      io.to(roomCode).emit("hintRejected", { message: "❌ You can only submit one hint per turn!" });
-      return;
+      if (room.currentHint) {
+        io.to(roomCode).emit("hintRejected", { message: "❌ You can only submit one hint per turn!" });
+        return;
+      }
+  
+      // ✅ Store hint in MongoDB
+      room.currentHint = hint;
+      await room.save();
+  
+      console.log("📢 Hint saved in database:", hint);
+      io.to(roomCode).emit("newHint", hint);
+    } catch (error) {
+      console.error("⚠️ Error storing hint:", error);
     }
-  
-    const formattedHint = `${spymaster.team} Team Spymaster's Hint: ${hint}`;
-    room.currentHint = formattedHint;
-    await room.save();
-  
-    console.log("📢 Emitting new hint:", formattedHint);
-    io.to(roomCode).emit("newHint", formattedHint);
   });
+  
   
   
 
