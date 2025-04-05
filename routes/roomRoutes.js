@@ -79,6 +79,18 @@ router.post('/join', async (req, res) => {
     const io = req.app.get('io');
     io.to(roomCode).emit('updatePlayers', room.players);
 
+    // ✅ Broadcast game resumption if teams are balanced
+    const redSpymaster = room.players.find(p => p.team === "Red" && p.role === "Spymaster");
+    const blueSpymaster = room.players.find(p => p.team === "Blue" && p.role === "Spymaster");
+    const redAgent = room.players.some(p => p.team === "Red" && p.role === "Agent");
+    const blueAgent = room.players.some(p => p.team === "Blue" && p.role === "Agent");
+
+    if (room.gameState === "paused" && redSpymaster && blueSpymaster && redAgent && blueAgent) {
+      room.gameState = "active";
+      await room.save();
+      io.to(roomCode).emit("gameResumed", { message: "✅ Game resumed!" });
+    }
+
     res.status(200).json({ message: 'Player added successfully.', players: room.players });
   } catch (error) {
     res.status(500).json({ error: 'Failed to join room.', details: error.message });
@@ -96,13 +108,17 @@ router.post('/startGame', async (req, res) => {
     }
 
     room.currentTurnTeam = 'Red';
-    room.timerStartTime = Date.now();
+    room.timerEndTime = Date.now() + 60000; // ✅ Use backend-controlled expiration logic
     room.gameState = 'active';
     await room.save();
 
     const io = req.app.get('io');
-    io.to(roomCode).emit('gameStarted', { currentTurnTeam: 'Red', timerStartTime: room.timerStartTime });
-    res.status(200).json({ message: 'Game started successfully.' });
+    io.to(roomCode).emit('gameStarted', {
+      currentTurnTeam: 'Red',
+      timerEndTime: room.timerEndTime, // ✅ Sync the correct timer
+    });
+
+    res.status(200).json({ message: 'Game started successfully.', timerEndTime: room.timerEndTime });
   } catch (error) {
     res.status(500).json({ error: 'Failed to start the game.', details: error.message });
   }
@@ -122,13 +138,22 @@ router.post('/endTurn', async (req, res) => {
       return res.status(400).json({ error: 'Game is not active.' });
     }
 
+    // ✅ Prevent multiple turn switches from happening too quickly
+    if (Date.now() < room.timerEndTime) {
+      return res.status(400).json({ error: 'Turn cannot switch before timer expires.' });
+    }
+
     room.currentTurnTeam = room.currentTurnTeam === 'Red' ? 'Blue' : 'Red';
-    room.timerStartTime = Date.now();
+    room.timerEndTime = Date.now() + 60000; // ✅ Reset backend-controlled timer
     await room.save();
 
     const io = req.app.get('io');
-    io.to(roomCode).emit('turnSwitched', { currentTurnTeam: room.currentTurnTeam, timerStartTime: room.timerStartTime });
-    res.status(200).json({ message: 'Turn ended successfully.' });
+    io.to(roomCode).emit('turnSwitched', {
+      currentTurnTeam: room.currentTurnTeam,
+      timerEndTime: room.timerEndTime,
+    });
+
+    res.status(200).json({ message: 'Turn ended successfully.', timerEndTime: room.timerEndTime });
   } catch (error) {
     res.status(500).json({ error: 'Failed to end turn.', details: error.message });
   }

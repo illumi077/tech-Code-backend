@@ -13,8 +13,8 @@ const gameRoomSchema = new mongoose.Schema({
     },
   ],
   currentTurnTeam: { type: String, enum: ['Red', 'Blue'], default: null }, // Tracks whose turn it is
-  timerStartTime: { type: Date, default: null },            // Timestamp for the start of the current turn
-  gameState: { type: String, enum: ['waiting', 'active','paused', 'ended'], default: 'waiting' }, // Game state
+  timerEndTime: { type: Date, default: null },            // ✅ Centralized timer for turn expiration
+  gameState: { type: String, enum: ['waiting', 'active', 'paused', 'ended'], default: 'waiting' }, // Game state
   turnHistory: [                                            // Optional: Log of all turns for debugging/future replays
     {
       team: { type: String, enum: ['Red', 'Blue'], required: true },
@@ -25,7 +25,6 @@ const gameRoomSchema = new mongoose.Schema({
   ],
   timestamp: { type: Date, default: Date.now },
   currentHint: { type: String, default: '' }, // Store the latest hint
-
 });
 
 module.exports = mongoose.model('GameRoom', gameRoomSchema);
