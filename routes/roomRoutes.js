@@ -108,7 +108,7 @@ router.post("/startGame", async (req, res) => {
     }
 
     room.currentTurnTeam = "Red";
-    room.timerEndTime = Date.now() + 60000; // ✅ Backend-controlled timer expiration
+    room.timerEndTime = Date.now() + 60000; // ✅ Backend-controlled expiration
     room.gameState = "active";
     await room.save();
 
@@ -120,10 +120,21 @@ router.post("/startGame", async (req, res) => {
 
     console.log(`🚀 Game started! Timer set to expire at ${room.timerEndTime}`);
 
-    // ✅ Ensure timer expiration is scheduled immediately when the game starts
-    scheduleTurnExpiration(roomCode); 
+    // ✅ Ensures timer expiration starts on the first turn
+    setTimeout(async () => {
+      const updatedRoom = await GameRoom.findOne({ roomCode });
+      if (Date.now() >= updatedRoom.timerEndTime) {
+        console.log("⏳ First turn expired! Switching turn...");
+        updatedRoom.currentTurnTeam = updatedRoom.currentTurnTeam === "Red" ? "Blue" : "Red";
+        updatedRoom.timerEndTime = Date.now() + 60000;
+        await updatedRoom.save();
 
-    res.status(200).json({ message: "Game started successfully.", timerEndTime: room.timerEndTime });
+        io.to(roomCode).emit("turnSwitched", {
+          currentTurnTeam: updatedRoom.currentTurnTeam,
+          timerEndTime: updatedRoom.timerEndTime,
+        });
+      }
+    }, 60000); // ✅ Ensures first turn expiration happens
   } catch (error) {
     res.status(500).json({ error: "Failed to start the game.", details: error.message });
   }

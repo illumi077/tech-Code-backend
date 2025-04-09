@@ -155,10 +155,10 @@ const scheduleTurnExpiration = async (roomCode) => {
     if (!room || room.gameState !== "active") return;
 
     if (Date.now() >= room.timerEndTime) {
-      console.log("🚨 Time expired! Switching turn...");
-
+      
       room.currentHint = "";
       room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
+      console.log("🚨 Time expired! Switching turn...",currentTurnTeam);
       room.timerEndTime = Date.now() + 60000;
       await room.save();
 
