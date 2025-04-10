@@ -54,23 +54,26 @@ io.on("connection", (socket) => {
     try {
       const room = await GameRoom.findOne({ roomCode });
       if (!room) return;
-
+  
       room.currentTurnTeam = "Red";
       room.timerEndTime = Date.now() + 60000; // ✅ Backend-controlled 60-second timer
       room.gameState = "active";
       await room.save();
-
+  
       io.to(roomCode).emit("gameStarted", {
         currentTurnTeam: "Red",
         timerEndTime: room.timerEndTime,
       });
-
-      // ✅ Start backend-controlled turn expiration
+  
+      console.log(`🚀 Game started! Timer expires at ${room.timerEndTime}`);
+  
+      // ✅ Start backend-controlled turn expiration IMMEDIATELY
       scheduleTurnExpiration(roomCode);
     } catch (error) {
       console.error("⚠️ Error starting the game:", error);
     }
   });
+  
 
   socket.on("submitHint", async ({ roomCode, hint, username }) => {
     try {
@@ -151,26 +154,31 @@ io.on("connection", (socket) => {
 
 const scheduleTurnExpiration = async (roomCode) => {
   setTimeout(async () => {
-    const room = await GameRoom.findOne({ roomCode });
-    if (!room || room.gameState !== "active") return;
-
-    if (Date.now() >= room.timerEndTime) {
-      
-      room.currentHint = "";
-      room.currentTurnTeam = room.currentTurnTeam === "Red" ? "Blue" : "Red";
-      console.log("🚨 Time expired! Switching turn...",currentTurnTeam);
-      room.timerEndTime = Date.now() + 60000;
-      await room.save();
+    const updatedRoom = await GameRoom.findOne({ roomCode });
+  
+    if (!updatedRoom) {
+      console.error("⚠️ Room not found during timer expiration.");
+      return;
+    }
+  
+    if (Date.now() >= updatedRoom.timerEndTime) {
+      console.log("🚨 Time expired! Switching turn...", updatedRoom.currentTurnTeam);
+  
+      updatedRoom.currentTurnTeam = updatedRoom.currentTurnTeam === "Red" ? "Blue" : "Red";
+      updatedRoom.timerEndTime = Date.now() + 60000;
+      await updatedRoom.save();
 
       io.to(roomCode).emit("turnSwitched", {
-        currentTurnTeam: room.currentTurnTeam,
-        timerEndTime: room.timerEndTime,
+        currentTurnTeam: updatedRoom.currentTurnTeam,
+        timerEndTime: updatedRoom.timerEndTime,
       });
 
-      // ✅ Schedule next turn expiration
+      console.log(`🔄 Turn switched to ${updatedRoom.currentTurnTeam}, next expiration at ${updatedRoom.timerEndTime}`);
+
+      // ✅ Restart timer for next turn expiration
       scheduleTurnExpiration(roomCode);
     }
-  }, 60000);
+  }, 60000); 
 };
 
 app.get("/", (req, res) => res.send("Server is running!"));
